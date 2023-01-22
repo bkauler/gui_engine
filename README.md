@@ -20,3 +20,7 @@ Currently the project is on hold, for a couple of reasons. One of them is this:
 https://github.com/AlxHnr/gui_engine/issues/4
 
 The second reason is that the author would like the UI to be usable via keyboard. TAB key to move between widgets, up-down arrows to select items in drop-down list, ENTER key to choose.
+
+There are posts about gui_engine on the author's blog; for example:
+
+https://bkhome.org/news/202301/guiengine-project-put-on-hold.html
