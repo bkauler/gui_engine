@@ -23,8 +23,9 @@
 #ifndef GUI_ENGINE_H
 #define GUI_ENGINE_H
 
-#include <SDL.h>
-#include <SDL_gfxPrimitives.h>
+#include <SDL/SDL.h>
+#include <SDL/SDL_ttf.h>
+#include <SDL/SDL_gfxPrimitives.h>
 #include <string.h>
 
 /* gui engine defines */
@@ -32,6 +33,9 @@
 #define G_MARGIN 8
 #define G_CHAR_W 8
 #define G_CHAR_H 12
+
+/*BK*/
+#define TTF_OFFSET_Y 0
 
 struct g_color_struct{
   Uint8 r, g, b, a;
@@ -75,10 +79,10 @@ typedef struct{
 /* widget defines */
 #define G_TEXT_LENGTH 4096
 #define G_CHECK_BOX_SIZE 15
-#define G_DROP_DOWN_LIST_SIZE 20
+#define G_DROP_DOWN_LIST_SIZE 25
 
 /* height for single line input box */
-#define G_INPUT_BOX_H 22
+#define G_INPUT_BOX_H 25
 
 /* slider w and h are swapped on vertical slider */
 #define G_SLIDER_W 15

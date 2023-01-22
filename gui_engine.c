@@ -22,6 +22,15 @@
 
 #include "gui_engine.h"
 
+/*BK*/
+extern TTF_Font *ttfFontB;
+extern TTF_Font *ttfFontR;
+extern int ttfCharW;
+extern int ttfCharH;
+SDL_Surface *ttfSurface = NULL;
+SDL_Color textColorFG = { 255, 255, 0 };
+SDL_Rect offset = { 0, 0 };
+
 static g_window *first_window = NULL;
 static g_window *last_window = NULL;
 
@@ -46,6 +55,23 @@ static g_widget *grab_keyboard_widget = NULL;
 
 /* gui defaults */
 static g_setting_struct g_defaults;
+
+/* **********BK code ideas from TestFonts.c********** */
+/*note: SDL_gfx has a 8x8 builtin font*/
+char *gfxFont;
+void gfxLoadFont() {
+  char filename[] = "9x15.fnt\0";
+  FILE *file;
+  int bytesRead;
+  gfxFont=(char *)malloc(7680); /*file size*/
+  file = fopen(filename,"r");
+  bytesRead = fread(gfxFont,7680,1,file);
+  fclose(file);
+  gfxPrimitivesSetFont(gfxFont,9,18);
+  //usage example...
+  //stringRGBA(screen,x,y,"text here",255,255,255,255);
+  //free(gfxFont);
+}
 
 /* core functions start */
 static g_widget *g_attach_raw_widged(g_window *window)
@@ -129,23 +155,59 @@ static void g_draw_text(SDL_Surface *dst, const char *text,
 {
   int dest_x, dest_y;
   int counter;
+  /*BK*/
+  char subbuff[256];
+  int buffcnt = 0;
+  
+  /*BK TEST
+  if (text[0] == 'I') {
+  printf("height=%d string=%s\n", h, text);
+  fflush(stdout);
+  }*/
   
   /* draw text loop */
   dest_x = x;
   dest_y = y;
-  for(counter = 0; text[counter] != '\0' && dest_y < y + h; counter++)
+  /*for(counter = 0; text[counter] != '\0' && dest_y < y + h; counter++)
   {
     if(text[counter] != '\n')
       characterRGBA(dst, dest_x, dest_y, text[counter], r, g, b, a);
-    
-    if(dest_x + G_CHAR_W < x + w && text[counter] != '\n')
-    {
+    if(dest_x + G_CHAR_W < x + w && text[counter] != '\n') {
       dest_x += G_CHAR_W;
     }
-    else
-    {
+    else {
       dest_x = x;
       dest_y += G_CHAR_H;
+    }
+  }*/
+  /*BK*/
+  subbuff[0] = '\0';
+  for(counter = 0; text[counter] != '\0' && dest_y < y + h; counter++)
+  {
+    if(text[counter] != '\n') {
+      memcpy(&subbuff[buffcnt], &text[counter], 1);
+      buffcnt = buffcnt + 1;
+      if (buffcnt >= 254) break; /*precaution*/
+    }
+    if(dest_x + ttfCharW < x + w && text[counter] != '\n' && text[counter+1] != '\0') {
+      dest_x += ttfCharW; /*not needed*/
+    }
+    else {
+      dest_x = x;
+      /*now blit the substring...*/
+      subbuff[buffcnt] = '\0';
+      textColorFG.r = r;
+      textColorFG.g = g;
+      textColorFG.b = b;
+      /*ttfSurface = TTF_RenderText_Blended(ttfFontB, subbuff, textColorFG);*/
+      ttfSurface = TTF_RenderUTF8_Blended(ttfFontB, subbuff, textColorFG);
+      offset.x = dest_x;
+      offset.y = dest_y - 4; /*hack, move text up a bit*/
+      SDL_BlitSurface(ttfSurface, NULL, dst, &offset);
+      SDL_FreeSurface(ttfSurface);
+      buffcnt = 0;
+      subbuff[0] = '\0';
+      dest_y += ttfCharH;
     }
   }
 }
@@ -220,7 +282,7 @@ static void g_adjust_widget_position_button(const g_widget *widget, int *x, int 
   
   /* calculate button width and height from text width and height */
   *w = temp_w * G_CHAR_W + G_MARGIN * 2;
-  *h = temp_h * G_CHAR_H + G_MARGIN;
+  *h = temp_h * ttfCharH + G_MARGIN;
   
   /* correct position */
   if(*x > window->w - window->margin - *w)
@@ -354,7 +416,7 @@ static void g_adjust_widget_position_drop_down_list_size(const g_widget *widget,
   
   /* calculate box width and height from text width and height */
   *w = temp_w * G_CHAR_W + G_MARGIN * 2;
-  *h = temp_h * G_CHAR_H;
+  *h = temp_h * ttfCharH;
   
   /* set x/y */
   g_adjust_widget_position_drop_down_list(widget, &temp_x, &temp_y, &temp_w);
@@ -394,6 +456,8 @@ static void g_draw_widget_input_box(SDL_Surface *dst, const g_widget *widget)
   int dest_x, dest_y;
   int counter;
   int text_length;
+  SDL_Surface *ttfSurface2 = NULL;
+  char subbuff[4];
   
   g_adjust_widget_position(widget, &x, &y, &w, &h);
   
@@ -429,7 +493,7 @@ static void g_draw_widget_input_box(SDL_Surface *dst, const g_widget *widget)
   dest_y = window->y + y;
   counter = widget->input.first_character;
   text_length = strlen(widget->input.text);
-  while(counter <= text_length && dest_y < window->y + y + h + G_CHAR_H)
+  while(counter <= text_length && dest_y < window->y + y + h + ttfCharH)
   {
     /* write character */
     if(widget->input.text[counter] != '\0' && dest_y < window->y + y + h)
@@ -442,9 +506,21 @@ static void g_draw_widget_input_box(SDL_Surface *dst, const g_widget *widget)
       }
       else
       {
-        characterRGBA(dst, dest_x, dest_y, widget->input.text[counter],
+        /*characterRGBA(dst, dest_x, dest_y, widget->input.text[counter],
                       widget->input.color.text.r, widget->input.color.text.g,
-                      widget->input.color.text.b, widget->input.color.text.a);
+                      widget->input.color.text.b, widget->input.color.text.a);*/
+        /*BK*/
+        textColorFG.r = widget->input.color.text.r;
+        textColorFG.g = widget->input.color.text.g;
+        textColorFG.b = widget->input.color.text.b;
+        //ttfSurface2 = TTF_RenderGlyph_Solid(ttfFontB, widget->input.text[counter], textColorFG);
+        memcpy(&subbuff[0], &widget->input.text[counter], 1);
+        subbuff[1] = '\0';
+        ttfSurface2 = TTF_RenderUTF8_Blended(ttfFontR, &subbuff[0], textColorFG);
+        offset.x = dest_x;
+        offset.y = dest_y - 5; /*hack*/
+        SDL_BlitSurface(ttfSurface2, NULL, dst, &offset);
+        SDL_FreeSurface(ttfSurface2);
       }
     }
     
@@ -453,10 +529,10 @@ static void g_draw_widget_input_box(SDL_Surface *dst, const g_widget *widget)
        counter == active_input_box->input.cursor_pos)
     {
       /* draw cursor in upper right corner */
-      if(dest_y >= window->y + y + G_CHAR_H && dest_x == window->x + x)
+      if(dest_y >= window->y + y + ttfCharH && dest_x == window->x + x)
       {
-        vlineRGBA(dst, window->x + x + (active_input_box->input.char_amount_w * G_CHAR_W),
-                  dest_y - 2 - G_CHAR_H, dest_y + 10 - G_CHAR_H,
+        vlineRGBA(dst, window->x + x + (active_input_box->input.char_amount_w * ttfCharW),
+                  dest_y - 2 - ttfCharH, dest_y + 10 - ttfCharH,
                   widget->input.color.cursor.r, widget->input.color.cursor.g,
                   widget->input.color.cursor.b, widget->input.color.cursor.a);
       }
@@ -468,14 +544,14 @@ static void g_draw_widget_input_box(SDL_Surface *dst, const g_widget *widget)
       }
     }
     
-    if(dest_x + G_CHAR_W < window->x + x + w)
+    if(dest_x + ttfCharW < window->x + x + w)
     {
-      dest_x += G_CHAR_W;
+      dest_x += ttfCharW;
     }
     else
     {
       dest_x = window->x + x;
-      dest_y += G_CHAR_H;
+      dest_y += ttfCharH;
     }
     
     counter++;
@@ -681,9 +757,25 @@ static void g_draw_widget_drop_down_list(SDL_Surface *dst, const g_widget *widge
             widget->drop_down.color.frame.b, widget->drop_down.color.frame.a);
   
   /* draw arrow pointing down; character number '31' in "SDL_gfxPrimitivesfont.h" */
-  characterRGBA(dst, window->x + x + w - G_DROP_DOWN_LIST_SIZE + 7, window->y + y + 8, 31,
+  /*characterRGBA(dst, window->x + x + w - G_DROP_DOWN_LIST_SIZE + 7, window->y + y + 8, 31,
                 widget->drop_down.color.arrow.r, widget->drop_down.color.arrow.g,
-                widget->drop_down.color.arrow.b, widget->drop_down.color.arrow.a);
+                widget->drop_down.color.arrow.b, widget->drop_down.color.arrow.a);*/
+  /*BK above is 8x8 font, want bigger down-arrow...*/
+  /*but first draw a rectangle... nah...*/
+  /*int x1 = window->x + x + w - G_DROP_DOWN_LIST_SIZE + 2;
+  int y1 = window->y + y + 1;
+  rectangleRGBA(dst, x1, y1, x1+21, y1+22, 
+      widget->drop_down.color.arrow.r, widget->drop_down.color.arrow.g,
+      widget->drop_down.color.arrow.b, widget->drop_down.color.arrow.a);*/
+  int x1 = window->x + x + w - G_DROP_DOWN_LIST_SIZE + 7;
+  int y1 = window->y + y + 8;
+  filledTrigonRGBA(dst, x1, y1, x1+10, y1, x1+5, y1+10, 
+      widget->drop_down.color.arrow.r, widget->drop_down.color.arrow.g,
+      widget->drop_down.color.arrow.b, widget->drop_down.color.arrow.a);
+  /*draw anti-aliased outline on top...*/
+  aatrigonRGBA(dst, x1, y1, x1+10, y1, x1+5, y1+10, 
+      widget->drop_down.color.arrow.r, widget->drop_down.color.arrow.g,
+      widget->drop_down.color.arrow.b, widget->drop_down.color.arrow.a);
   
   /* check position of current text item */
   counter = g_get_line(widget->drop_down.text, widget->drop_down.current_item);
@@ -701,7 +793,7 @@ static void g_draw_widget_drop_down_list(SDL_Surface *dst, const g_widget *widge
     w -= G_MARGIN * 2 + G_DROP_DOWN_LIST_SIZE;
     
     g_draw_text(dst, temp_string, window->x + x,
-                window->y + y, w, G_CHAR_H,
+                window->y + y, w, ttfCharH,
                 widget->drop_down.color.text.r, widget->drop_down.color.text.g,
                 widget->drop_down.color.text.b, widget->drop_down.color.text.a);
   }
@@ -854,17 +946,41 @@ static void g_draw_window(SDL_Surface *dst, const g_window *window)
     /* write text in center of title bar */
     if(window->flags.close_button)
     {
-      stringRGBA(dst, window->x + (window->w - G_WINDOW_CLOSE_BUTTON_WIDTH)/2 - (strlen(temp_string) * G_CHAR_W)/2,
+      /*stringRGBA(dst, window->x + (window->w - G_WINDOW_CLOSE_BUTTON_WIDTH)/2 - (strlen(temp_string) * G_CHAR_W)/2,
                  window->y - G_WINDOW_TITLE_BAR_HEIGHT + G_MARGIN, temp_string,
                  window->color.title_text.r, window->color.title_text.g,
-                 window->color.title_text.b, window->color.title_text.a);
+                 window->color.title_text.b, window->color.title_text.a);*/
+    
+      /*BK*/
+      textColorFG.r = window->color.title_text.r;
+      textColorFG.g = window->color.title_text.g;
+      textColorFG.b = window->color.title_text.b;
+      //ttfSurface = TTF_RenderText_Solid(ttfFontB, temp_string, textColorFG);
+      ttfSurface = TTF_RenderText_Blended(ttfFontB, temp_string, textColorFG);
+      offset.x = window->x + (window->w - G_WINDOW_CLOSE_BUTTON_WIDTH)/2 - (strlen(temp_string) * G_CHAR_W)/2;
+      offset.y = window->y - G_WINDOW_TITLE_BAR_HEIGHT + TTF_OFFSET_Y;
+      SDL_BlitSurface(ttfSurface, NULL, dst, &offset);
+      SDL_FreeSurface(ttfSurface);
+    
     }
     else
     {
-      stringRGBA(dst, window->x + window->w/2 - (strlen(temp_string) * G_CHAR_W)/2,
+      /*stringRGBA(dst, window->x + window->w/2 - (strlen(temp_string) * G_CHAR_W)/2,
                  window->y - G_WINDOW_TITLE_BAR_HEIGHT + G_MARGIN, temp_string,
                  window->color.title_text.r, window->color.title_text.g,
-                 window->color.title_text.b, window->color.title_text.a);
+                 window->color.title_text.b, window->color.title_text.a);*/
+    
+      /*BK*/
+      textColorFG.r = window->color.title_text.r;
+      textColorFG.g = window->color.title_text.g;
+      textColorFG.b = window->color.title_text.b;
+      //ttfSurface = TTF_RenderText_Solid(ttfFontB, temp_string, textColorFG);
+      ttfSurface = TTF_RenderText_Blended(ttfFontB, temp_string, textColorFG);
+      offset.x = window->x + window->w/2 - (strlen(temp_string) * G_CHAR_W)/2;
+      offset.y = window->y - G_WINDOW_TITLE_BAR_HEIGHT + TTF_OFFSET_Y;
+      SDL_BlitSurface(ttfSurface, NULL, dst, &offset);
+      SDL_FreeSurface(ttfSurface);
+    
     }
   }
   /* draw title bar end */
@@ -1142,7 +1258,7 @@ static int g_SDL_EventFilter(const SDL_Event *event)
       /* choose drop down list item and close it */
       if(event->type == SDL_MOUSEBUTTONDOWN && event->button.button == SDL_BUTTON_LEFT)
       {
-        active_drop_down_list->drop_down.current_item = (event->button.y - y)/G_CHAR_H;
+        active_drop_down_list->drop_down.current_item = (event->button.y - y)/ttfCharH;
         
         active_drop_down_list = NULL;
       }
@@ -1380,7 +1496,7 @@ static int g_SDL_EventFilter(const SDL_Event *event)
               {
                 active_input_box->input.cursor_pos += (event->button.y - window->y - y - G_CHAR_H)/G_CHAR_H * active_input_box->input.char_amount_w;
                 
-                if(event->button.y > window->y + y + G_MARGIN + G_CHAR_H &&
+                if(event->button.y > window->y + y + G_MARGIN + ttfCharH &&
                    event->button.x < window->x + x + G_MARGIN)
                   active_input_box->input.cursor_pos++;
                 
@@ -2095,8 +2211,8 @@ void g_enter_input_box(g_widget *widget)
   h -= G_MARGIN;
   
   /* caclulate how many characters fit in the input box */
-  if(h/G_CHAR_H > 0)
-    active_input_box->input.char_amount = (w/G_CHAR_W + 1) * (h/G_CHAR_H);
+  if(h/ttfCharH > 0)
+    active_input_box->input.char_amount = (w/G_CHAR_W + 1) * (h/ttfCharH);
   else
     active_input_box->input.char_amount = w/G_CHAR_W + 1;
   
@@ -2457,8 +2573,8 @@ void g_draw_everything(SDL_Surface *dst)
     SDL_GetMouseState(&temp_x, &temp_y);
     if(temp_x > x && temp_x < x + w && temp_y > y && temp_y < y + h)
     {
-      boxRGBA(dst, x, y + ((temp_y - y)/G_CHAR_H) * G_CHAR_H + 1,
-              x + w - 1, y + ((temp_y - y)/G_CHAR_H) * G_CHAR_H + G_CHAR_H,
+      boxRGBA(dst, x, y + ((temp_y - y)/ttfCharH) * ttfCharH + 1,
+              x + w - 1, y + ((temp_y - y)/ttfCharH) * ttfCharH + ttfCharH,
               active_drop_down_list->drop_down.color.highlight.r, active_drop_down_list->drop_down.color.highlight.g,
               active_drop_down_list->drop_down.color.highlight.b, active_drop_down_list->drop_down.color.highlight.a);
     }

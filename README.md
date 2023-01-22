@@ -9,7 +9,7 @@ This fork of gui_engine is intended to create statically-linked standalone execu
 The original example.c statically-linked with musl, SDL 1.2, is 306KB.
 Converted from the 8x8 fonts inbuilt to SDL_gfx to TTF, again statically-linked with SDL, SDL_ttf, freetype and png, is 560KB. Snapshot with RobotoMono TTF:
 
-![guiengine-demo-antialiazed](https://user-images.githubusercontent.com/4200448/213896216-9cf12d37-3439-45f6-ab30-a884b27d1b42.png)
+![example-ttf](https://github.com/bkauler/gui_engine/example-ttf.png)
 
 The build environment, that cross-compiles the packages, with musl and static libraries, is at the author's oe-qky-kirkstone project:
 
